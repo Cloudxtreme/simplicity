@@ -16,32 +16,46 @@ my ($a1, $a2, $a3) = (@ARGV, '', '', '');
 -d $CONFBASE or run("mkdir -p $CONFBASE");
 
 # edit the conf file
-if ("$a1 $a2" eq "edit conf") {
+if ("$a1" eq "edit" and $a2 eq "") {
     run("perl -ne 'print if m(^/)...m(^/) and not m(^/)' < $0 > $CONF") unless (-f "$CONF");
     run( ($ENV{VISUAL} || $ENV{EDITOR} || "vi") . " $CONF");
     exit;
 }
 
-# list the include/exclude lists
-if ("$a1 $a2" eq "list lists") {
-    chdir($CONFBASE) or die "chdir $CONFBASE failed: $!\n";
-    my @lists = glob("*");
-    print join (", ", @lists), "\n";
+# the rest of the code needs a parsed config file
+
+# parse the conf file and store NAMES, FILES, etc...
+my %conf = parse_conf();
+    # hash -> hash -> list
+
+# list the names and lists available
+if ("$a1" eq "list") {
+    printf "backupset names in conf:\n";
+    printf "\t$_\n" for (sort keys %{ $conf{NAMES} });
+
+    printf "file lists in conf:\n";
+    printf "\t$_\n" for (sort &get_conf_lists());
+
+    printf "actual listfiles on disk:\n";
+    printf "\t$_\n" for (sort &get_phy_lists());
     exit;
 }
 
 # edit list (part of name is sufficient)
 if ($a1 eq "edit" and $a2 =~ $SIMPLE_PATT) {
-    chdir($CONFBASE) or die "chdir $CONFBASE failed: $!\n";
-    my @lists = grep { /$a2/ } glob("*");
+    # combine lists in conf and lists on disk
+    my @lists = map { s/\t.*//; $_ } &get_conf_lists();
+    push @lists, &get_phy_lists();
+
+    # de-dup
+    my %lists = map { $_ => 1 } @lists;
+    @lists = grep /$a2/, sort keys %lists;
+
+    # if empty, use argument itself as new list and invoke editor
     @lists = ($a2) unless @lists;
     run( ($ENV{VISUAL} || $ENV{EDITOR} || "vi") . " " . join(" ", @lists));
     exit;
 }
-
-# parse the conf file and store NAMES, FILES, etc...
-my %conf = parse_conf();
-    # hash -> hash -> list
 
 # finally... we get to *do* something!
 {
@@ -177,25 +191,39 @@ sub run {
     exit 1;
 }
 
+sub get_phy_lists {
+    chdir($CONFBASE) or die "chdir $CONFBASE failed: $!\n";
+    return glob("*");
+}
+
+sub get_conf_lists {
+    my @l;
+    my $pat = $_[0] || '.';
+    for my $f (sort keys %{ $conf{FILES} }) {
+        my $l = $conf{FILES}{$f}[1] or next;
+        push @l, "$l\t($f)";
+    }
+    return @l;
+}
+
 sub usage {
 print STDERR "
 duplicity made simple
 ---------------------
 
-simplicity edit conf
+simplicity edit
     create it if it doesn't exist, then edit the main config file
     ( $CONF )
 
-simplicity list lists
-    list the include/exclude lists
-    ( in $CONFBASE )
+simplicity list
+    list backupset names and include/exclude lists
 
 simplicity edit foo
     edit the include/exclude lists whose name contains 'foo', or create and
     edit a new list called 'foo'
 
-(yes those commands are 2 words each, in plain English.  You can't have a
-program called 'simplicity' and have the commands be 'ec', 'll', etc!)
+(yes those commands are plain English.  You can't have a program called
+'simplicity' and have the commands be 'ec', 'll', etc!)
 
 simplicity <backupset name> [ <operation> ]
     performs the requested operation on the backupset named.  The
