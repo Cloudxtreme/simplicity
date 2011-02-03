@@ -103,7 +103,7 @@ if ($a1 eq "edit" and $a2 =~ $SIMPLE_PATT) {
     } elsif ($op eq 'list') {
         run("duplicity list-current-files $KEY $OPTIONS $URL");
     } elsif ($op eq 'verify') {
-        run("duplicity verify $KEY $OPTIONS $URL $DIR");
+        run("duplicity verify $KEY --include-globbing-filelist $LIST $OPTIONS $URL $DIR");
     } elsif ($op =~ /^full=(\d)$/) {
         my $n = $1;
         run("duplicity full $KEY --include-globbing-filelist $LIST $OPTIONS $DIR $URL");
