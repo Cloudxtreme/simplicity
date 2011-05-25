@@ -62,7 +62,7 @@ if ($a1 eq "edit" and $a2 =~ $SIMPLE_PATT) {
     my ($name, $op) = ($a1, $a2);
     $op ||= 'b';    # default is "backup"
     die "don't know the name $name\n" unless ref($conf{NAMES}{$name}) eq 'ARRAY';
-    die "don't know the operation $op\n" unless $op =~ /^(b|status|list|verify|full=\d)$/;
+    die "don't know the operation $op\n" unless $op =~ /^(b|r|status|list|verify|full=\d)$/;
 
     my ($files, $disk, $key, @options) = @{ $conf{NAMES}{$name} };
     die "unknown $files in $name\n" unless ref($conf{FILES}{$files}) eq 'ARRAY';
@@ -98,6 +98,8 @@ if ($a1 eq "edit" and $a2 =~ $SIMPLE_PATT) {
     my $rc = 0;
     if ($op eq 'b') {
         run("duplicity $KEY --include-globbing-filelist $LIST $OPTIONS $DIR $URL");
+    } elsif ($op eq 'r') {
+        print STDERR "duplicity $KEY $OPTIONS" . ($ENV{FTR} ? " --file-to-restore $ENV{FTR}" : "") . " $URL\n";
     } elsif ($op eq 'status') {
         run("duplicity collection-status $KEY $OPTIONS $URL");
     } elsif ($op eq 'list') {
@@ -236,6 +238,11 @@ simplicity <backupset name> [ <operation> ]
     verify  verify
     full=N  (where N = 1 to 9) take a full backup, then remove all but the
             last N full backups
+
+    r       show the restore command you would need to use.  If the
+            environment variable FTR is defined, that will be used as the
+            argument for the --file-to-restore option so the resulting command
+            is easier to copy/paste
 
 See http://github.com/sitaramc/simplicity for more.
 

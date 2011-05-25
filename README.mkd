@@ -23,6 +23,7 @@ In this document:
       * <a href="#_incremental_backups">incremental backups</a>
       * <a href="#_full_backup_again">full backup again</a>
       * <a href="#_checking_things_out_and_verifying_the_backup">checking things out and verifying the backup</a>
+      * <a href="#_restoring_files">restoring files</a>
   * <a href="#_include_exclude_lists">include/exclude lists</a>
 
 ----
@@ -202,6 +203,16 @@ use the "env" method!  Run the backup normally via cron every day, and the
 The 'status' operation (`simplicity mail-to-usb status`) runs duplicity's
 'collection-status' command.  Similarly, 'list' runs 'list-current-files', and
 'verify' runs 'verify'.
+
+<a name="_restoring_files"></a>
+
+#### restoring files
+
+Simplicity does not have code to restore -- that is usually best done manually
+to avoid overwriting stuff!  Therefore, the single letter command 'r' will
+print the actual restore command you should be using, except the filenames to
+be restored and the destination directory.  Additionally, if you set the env
+variable `FTR` to something, that will be prefilled as the file to restore.
 
 <a name="_include_exclude_lists"></a>
 
