@@ -106,6 +106,7 @@ if ($a1 eq "edit" and $a2 =~ $SIMPLE_PATT) {
         run("duplicity verify $KEY --include-globbing-filelist $LIST $OPTIONS $URL $DIR");
     } elsif ($op =~ /^full=(\d)$/) {
         my $n = $1;
+        run("duplicity remove-all-but-n-full $n $KEY --force $OPTIONS $URL");
         run("duplicity full $KEY --include-globbing-filelist $LIST $OPTIONS $DIR $URL");
         run("duplicity remove-all-but-n-full $n $KEY --force $OPTIONS $URL");
     }
