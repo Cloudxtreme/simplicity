@@ -159,7 +159,7 @@ sub parse_conf {
 }
 
 sub adjust_key {
-    my ($k, $op) = shift;
+    my ($k, $op) = @_;
     if ($k eq 'ask') {
         delete $ENV{PASSPHRASE};
         $k = '';
