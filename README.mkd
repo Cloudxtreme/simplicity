@@ -103,7 +103,7 @@ manually for that until I get around to adding it :-)
 
 First, **install** simplicity by just copying it somewhere in your `$PATH`.
 
-Then, run `simplicity edit conf` to create and edit the main config file.  The
+Then, run `simplicity edit` to create and edit the main config file.  The
 format is very simple and the file comes with sample lines that you can
 uncomment and change as needed.
 
@@ -207,7 +207,7 @@ up an editor.  Now enter these lines:
 making sure that the "-" is at the first column and there is only one space
 after it.
 
-Now you again `simplicity edit conf` and change the 'mymail' line to
+Now you again `simplicity edit` and change the 'mymail' line to
 
     mymail      =   Maildir     mail-list
 
