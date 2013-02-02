@@ -1,0 +1,284 @@
+
+<head>
+    <title>simplicity -- duplicity made simple!</title>
+<style>
+    body        { background: #fff; text-color: #000; margin-left:  40px;   font-size:  0.9em;  font-family: sans-serif; max-width: 800px; }
+    h1          { background: #ffb; text-color: #000; margin-left: -30px;   border-top:    5px  solid #ccc; }
+    h2          { background: #ffb; text-color: #000; margin-left: -20px;   border-top:    3px  solid #ddd; }
+    h3          { background: #ffb; text-color: #000; margin-left: -10px; }
+    h4          { background: #ffb; text-color: #000; }
+    code        { font-size:    1.1em;  background:  #ddf; text-color: #000; }
+    pre         { margin-left:  2em;    background:  #ddf; text-color: #000; }
+    pre code    { font-size:    1.1em;  background:  #ddf; text-color: #000; }
+</style>
+</head>
+
+<h1>simplicity -- duplicity made simple!</h1>
+
+<p><a href="http://github.com/sitaramc/simplicity">Simplicity</a> is a wrapper over <a href="http://duplicity.nongnu.org">duplicity</a>.  Duplicity is a pretty
+awesome backup tool for security conscious people, but it is somewhat
+intimidating at first glance :-)</p>
+
+<p><strong>QUICK START</strong>: if you have some idea of how duplicity works, and how it uses
+encryption/gpg, etc., you can simply put simplicity somewhere in your <code>$PATH</code>
+and run it without arguments to get going.</p>
+
+<hr />
+
+<ul>
+<li><a href="index.html">simplicity -- duplicity made simple!</a>
+<ul>
+<li><a href="README.html#why-d">why duplicity</a>
+<ul>
+<li><a href="README.html#caveats">caveats about duplicity</a></li>
+</ul></li>
+<li><a href="README.html#why-s">why simplicity</a></li>
+<li><a href="README.html#ops">simplicity operations</a>
+<ul>
+<li>your first (full) backup</li>
+<li>incremental backups</li>
+<li>full backup again</li>
+<li>checking things out and verifying the backup</li>
+<li>restoring files</li>
+</ul></li>
+<li><a href="README.html#incexc">include/exclude lists</a></li>
+</ul></li>
+</ul>
+
+<hr />
+
+<h2><a name="why-d"></a> why duplicity</h2>
+
+<p>One word answer: paranoia ;-)</p>
+
+<p>Duplicity is a backup tool that allows you to take encrypted backups on
+untrusted media.  You can backup to a USB disk and not worry that someone can
+simply read all your data from it if they find it.  You can backup to servers
+where you have disk space but no real control, like Amazon's S3 service, or a
+friend's hard disk (mutual backups are a good way to help each other out).
+You can even use duplicity's "imap" backend to backup to an IMAP server like
+gmail (note: I have not tried this!)</p>
+
+<p>There are 3 options for encryption in duplicity.</p>
+
+<ul>
+<li><p>The first option is to <strong>have your own gpg key</strong>.  If you want to make
+unattended, encrypted, backups this is probably the best option.</p>
+
+<p>If you don't already have a gpg key, start with <code>gpg --key-gen</code> and follow
+the prompts.  This will create a secret and a public keypair in
+<code>~/.gnupg</code>.  The prompts include one for a passphrase -- make sure you
+choose one that is easy for you to remember even months later, yet hard
+for anyone else to guess.</p>
+
+<p>Once you start using this key to encrypt real backups, the contents of
+your <code>$HOME/.gnupg</code> become very critical to <em>restoring</em> that data in the
+future, so please save those files in multiple places.  (This is why a
+good passphrase is needed).</p></li>
+<li><p>The second option is to <strong>just type in a password everytime</strong> you do
+something, without worrying about having to keep the contents of
+<code>~/.gnupg</code> safe forever.  To make unattended, encrypted, backups like
+this, you can set an environment variable (PASSPHRASE) to your password in
+the backup script.  If you trust your local machine sufficiently and you
+are the only user on it (as is typical on a desktop or laptop), this may
+be a reasonable option.</p></li>
+<li><p>The last option of course is not to use any encryption at all, which is
+probably not such a great idea in general.  More to the point, if you're
+not going to encrypt stuff you have a much wider choice of backup tools.
+I'd recommend rdiff-backup -- still one of my favourites and has some nice
+features that duplicity just cannot have -- or perhaps the up-and-coming
+'bup' tool.</p></li>
+</ul>
+
+<p>Duplicity takes a full backup the first time, and incremental backups
+subsequently unless you force a full backup again.</p>
+
+<p>For more details about duplicity see <a href="http://duplicity.nongnu.org">this</a>.</p>
+
+<h3><a name="caveats"></a> caveats about duplicity</h3>
+
+<ul>
+<li><p>As someone said, <strong>mathematics cannot be bribed</strong>.  If you lose your gpg
+keys, or forget your passphrase, your backup is toast.</p></li>
+<li><p>Each full backup takes as much space as the first one -- even if no data
+has changed.  This is good and bad -- good because it provides some
+protection against partial disk corruption, and bad because it takes disk
+space.  Depending on how much disk space you have, how much data you have
+to backup, and how important it is, you have to decide how many full
+backups too keep.</p>
+
+<p>Personally, I keep between 2 and 4.  When I keep only 2, I backup to two
+different machines.</p></li>
+<li><p>if you delete <code>~/.cache/duplicity</code> (or some similar directory, depending
+on how your distro sets it up), expect some pain next time you run
+anything.  This is not duplicity's fault -- but it is something you need
+to be aware of.</p></li>
+</ul>
+
+<h2><a name="why-s"></a> why simplicity</h2>
+
+<p>What part of "duplicity made simple" is not clear?  ;-)</p>
+
+<p>Jokes apart, duplicity is quite complex and has a fairly dense man-page.
+Simplicity sets up the basic stuff quickly and easily, to cover the most
+common cases.</p>
+
+<p>Notice that I don't deal with restoring data yet, but you can run duplicity
+manually for that until I get around to adding it :-)</p>
+
+<h2><a name="ops"></a> simplicity operations</h2>
+
+<h3>your first (full) backup</h3>
+
+<p>First, <strong>install</strong> simplicity by just copying it somewhere in your <code>$PATH</code>.</p>
+
+<p>Then, run <code>simplicity edit</code> to create and edit the main config file.  The
+format is very simple and the file comes with sample lines that you can
+uncomment and change as needed.</p>
+
+<p>Briefly, the "FILES" section specifies what files are to be backed up.  Each
+files-spec looks like this:</p>
+
+<pre><code>mymail  =   Maildir     mail-list
+</code></pre>
+
+<p>'mymail' is the identifier that is used later in the conf file to refer to
+this file-spec.  The files in 'Maildir' are to be backed up.  If the final
+parameter exists, it is the name of a file that contains an include/exclude
+list (see later for what this is and how it affects the backup).</p>
+
+<p>The "DISKS" section specifies URLs for various remote storage areas that you
+have access to.  See the duplicity man page for more on the syntax of the
+"DISKS" part if the examples in the sample config do not suffice.  Each "disk"
+is, as for FILES above, given an identifier for later use.</p>
+
+<p>Similarly the "KEYS" section specifies the various gpg keys you may have and
+the "OPTIONS" section allows you to specify any other duplicity options you
+need.</p>
+
+<p>Finally, the "NAMES" section is what ties all of these together.  Each "name"
+entry looks like this:</p>
+
+<pre><code>mail-to-usb =   mymail  seagate-500GB   sita
+</code></pre>
+
+<p>So when you run <code>simplicity mail-to-usb</code>, you're backing up the files referred
+to by 'mymail' (this means files from 'Maildir', optionally taking extra
+include/exclude options from a supplied list), onto a 500 GB external disk
+that you have designated 'seagate-500GB' in the "DISKS" section, encrypting
+the backup with the gpg key referred to by 'sita' in the "KEYS" section.</p>
+
+<p>The last argument can take some other values than a reference to a gpg key:
+  * 'none' means no encryption
+  * 'ask' means ask the user each time
+  * 'env' means you will ensure the environment variable <code>PASSPHRASE</code> is
+    somehow set before calling simplicity</p>
+
+<p>Be patient; the first backup may take a lot more time than you expected,
+though of course incremental backups go much, <em>much</em>, faster.</p>
+
+<h3>incremental backups</h3>
+
+<p>Incremental backups are done the same way: <code>simplicity mail-to-usb</code>, in this
+example.  Duplicity ensures that all subsequent backups are incremental.</p>
+
+<h3>full backup again</h3>
+
+<p>Sadly, there is a penalty for running with incremental backups for too long --
+a restore may take much longer.  Worse, the latest version may depend on more
+and more files from previous backups, so if there is a disk failure, the
+chances of losing backup data increase.</p>
+
+<p>(Personally, I make a full backup every week.)</p>
+
+<p>Let's say that, after reading about the disk space considerations in the
+'caveats about duplicity' section above, you decided you want to keep 4 full
+backups.  Simplicity makes this easy: <code>simplicity mail-to-usb full=4</code>.</p>
+
+<p>But duplicity throws a wee little spanner in the works -- this cannot be done
+unattended, unless you are putting the passphrase into the <code>PASSPHRASE</code> env
+var :-(</p>
+
+<p>So -- a truly unattended, fire and forget, backup is <em>only</em> possible if you
+use the "env" method!  Run the backup normally via cron every day, and the
+'full=4' operation on Sunday (for instance).</p>
+
+<h3>checking things out and verifying the backup</h3>
+
+<p>The 'status' operation (<code>simplicity mail-to-usb status</code>) runs duplicity's
+'collection-status' command.  Similarly, 'list' runs 'list-current-files', and
+'verify' runs 'verify'.</p>
+
+<h3>restoring files</h3>
+
+<p>Simplicity does not have code to restore -- that is usually best done manually
+to avoid overwriting stuff!  Therefore, the single letter command 'r' will
+print the actual restore command you should be using, except the filenames to
+be restored and the destination directory.  Additionally, if you set the env
+variable <code>FTR</code> to something, that will be prefilled as the file to restore.</p>
+
+<h2><a name="incexc"></a> include/exclude lists</h2>
+
+<p>This is a little more advanced, and for full details you should read the
+duplicity man page.</p>
+
+<p>Let's say you were backing up your email, which is in a directory
+called 'Maildir'.  So the FILES section said:</p>
+
+<pre><code>mymail      =   Maildir
+</code></pre>
+
+<p>However, there are some sub-directories that you do not want backed up.  What
+you do is, from the command line, run <code>simplicity edit mail-list</code>, which opens
+up an editor.  Now enter these lines:</p>
+
+<pre><code>- Maildir/.Trash
+- Maildir/.Junk
+- Maildir/.Drafts
+</code></pre>
+
+<p>making sure that the "-" is at the first column and there is only one space
+after it.</p>
+
+<p>Now you again <code>simplicity edit</code> and change the 'mymail' line to</p>
+
+<pre><code>mymail      =   Maildir     mail-list
+</code></pre>
+
+<p>This tells simplicity to use the 'mail-list' file you created as an
+include/exclude list while backing up 'Maildir'.</p>
+
+<p>Include/exclude lists are very powerful; see the duplicity documentation for
+more details.</p>
+
+<p>Here's a more complex example.  In this case, I'm backing up an arbitrary set
+of directories and files in my home directory.  So I put this in the FILES
+section:</p>
+
+<pre><code>myhome  =   .   home-list
+</code></pre>
+
+<p>And then I <code>simplicity edit home-list</code> and add the following lines:</p>
+
+<pre><code>- ./.thunderbird/default/*.slt/Cache
+- ./.thunderbird/default/*.slt/ImapMail
+./.thunderbird
+./workdata
+./Desktop
+./bin
+./.config
+- **
+</code></pre>
+
+<p>In the previous example, you wanted almost everything in 'thundermail' except
+the two trash directories/files.  By contrast, here you want almost nothing
+out of the gazillions of files and directories that clutter a typical <code>$HOME</code>
+today.  This is the reason you need that <code>- **</code> line at the end.</p>
+
+<p>Also notice the exceptions within the thunderbird backup.  These lines must
+come <em>before</em> the 3rd line.  To understand why, and more such nuances, please
+read the documentation for duplicity.</p>
+
+<hr />
+
+<p>(c) Sitaram Chamarty, sitaramc@gmail.com.  Licensed under the GNU GPL v2.</p>
