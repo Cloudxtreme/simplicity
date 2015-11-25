@@ -1,0 +1,157 @@
+#!/bin/bash
+
+# sanity
+set -e
+die() { echo "$@" >&2; exit 1; }
+
+# tempfile
+export od=$PWD;
+export tmp=$(mktemp -d);
+trap "rm -rf $tmp" 0;
+
+# some variables
+export TMPFL=$tmp/file-list
+export CONF=$HOME/.config/sb.conf
+
+# make file list from $CONF
+make_file_list() {
+    perl -e '
+        $set=shift;
+        open(FL, ">", +shift) or die;
+        while (<>) {
+            next unless /^FILES $set / .. /^$/;
+            $src = $1 if /^FILES $set (\S+)/;
+            next if /^FILES $set / or /^$/;
+            next if /^\s*#/;
+            s(^\s*(.) )($1 ./);
+            print FL "$_";
+        }
+        print "$src\n";
+    ' $1 $2 < $CONF
+}
+
+# usage and a couple of other little functions
+usage() {
+    echo "Usage: $0 dst/key-set fileset"
+    echo
+    echo Available dst/key-sets:
+    egrep -o ^\\w+=\' $CONF | sed -e 's/=.*/    /' -e 's/^/    /'
+    echo Available filesets:
+    egrep -o ^FILES.\\w+ $CONF | sed -e 's/^FILES./    /'
+    echo "WARNING: rdiff-backup's verify mode doesn't seem to do anything!"
+    exit 1
+}
+
+run() (
+    echo "$@" >&2
+    "$@"
+)
+
+# ----------------------------------------------------------------------
+# backend specific functions
+# ----------------------------------------------------------------------
+
+backup() {
+    if [ "$KEY" = "none" ]
+    then
+        rdif_b $DST
+    else
+        dupl_b $DST
+    fi
+}
+
+rdif_b() {
+    run rdiff-backup --print-statistics $INCEXC '**' . $DST
+}
+
+dupl_b() {
+    if [ "$KEY" = "ask" ]; then
+        [ -z "$PASSPHRASE" ] || echo WARNING: env var PASSPHRASE exists and will be used
+        run duplicity $ASKPASS $INCEXC '**' --name=$NAME . $DST
+    elif [ "$KEY" = "env" ]; then
+        die "export PASSPHRASE and run with 'ask'"
+    else
+        run duplicity $ASKPASS --encrypt-key $KEY $INCEXC '**' --name=$NAME . $DST
+    fi
+}
+
+status() {
+    if [ "$KEY" = "none" ]
+    then
+        rdif_s $DST
+    else
+        dupl_s $DST
+    fi
+}
+
+rdif_s() {
+    run rdiff-backup --list-increment-sizes $DST
+}
+
+dupl_s() {
+    if [ "$KEY" = "ask" ]; then
+        [ -z "$PASSPHRASE" ] || echo WARNING: env var PASSPHRASE exists and will be used
+        run duplicity collection-status $ASKPASS --name=$NAME $DST
+    elif [ "$KEY" = "env" ]; then
+        die "export PASSPHRASE and run with 'ask'"
+    else
+        run duplicity collection-status $ASKPASS --encrypt-key $KEY --name=$NAME $DST
+    fi
+}
+
+# ----------------------------------------------------------------------
+# main
+# ----------------------------------------------------------------------
+
+[ -n "$2" ] || usage
+# dsk+key set, file set.  See sample sb.conf in readme
+DKSET=$1
+FSET=$2
+
+# extract the file list to $TMPFL, and get the source directory name to $SRC
+SRC=$(make_file_list $FSET $TMPFL)
+cd $SRC
+pwd
+nl $TMPFL
+
+# setup dst/key names
+. $CONF
+eval ${!DKSET}
+DST=$DST/$FSET
+
+NAME=$DKSET
+[ -n $USB ] && [ -f $USB/.volname ] && NAME=$(cat $USB/.volname)
+NAME=$NAME-$FSET
+
+INCEXC="--include-globbing-filelist $TMPFL --exclude"
+# can't get that damn '**' into the INCEXC easily!
+
+ASKPASS=
+ssh-add -l >/dev/null 2>&1 || ASKPASS=--ssh-askpass
+
+if [ "$3" = "s" ] || [ "$3" = "status" ]
+then
+    status
+else
+    backup
+fi
+
+# gpg priv key import
+    # 'gpg --import file'
+    # 'gpg --edit-key sitaram', then 'trust', then '5'
+
+# valid DST formats
+    # DST=/var/backup/rdif                          # rdb local
+    # DST=user@host::rdif                           # rdb remote (note double colon)
+    # DST=file:///var/backup/dupl                   # dup local
+    # DST=ssh://sitaram@172.25.149.97/dupl/mail     # dup remote
+
+# duplicity cheatsheet
+    # restore:  duplicity $KEY [ --file-to-restore $FTR ] $DST .
+    # status:   duplicity collection-status $KEY $DST
+    # list:     duplicity list-current-files $KEY $DST
+    # verify:   duplicity verify $KEY --include-globbing-filelist $TMPFL $DST $SRC
+    # full=N
+    #           duplicity remove-all-but-n-full $N $KEY --force $DST
+    #           duplicity full $KEY --include-globbing-filelist $TMPFL $SRC $DST
+    #           duplicity remove-all-but-n-full $N $KEY --force $DST

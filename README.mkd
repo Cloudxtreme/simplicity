@@ -1,248 +1,97 @@
-# simplicity -- duplicity made simple!
+Simplicity is **abandoned** (sorry!) in favour of a much simpler program `sb`.
+
+`sb` does effectively the same thing (make it easy to do duplicity backups),
+but is much smaller and more focused.  It also front-ends rdiff-backup in case
+you need that instead of duplicity.
+
+There's a sample conf file below.  You run it by saying, for example:
+
+    sb wd_d mail
+
+(Look for `wd_d` and `mail` in the conf and you will understand).
+
+The only additional point to note is that if you're using different USB disks,
+put in a ".volname" file in the root directory of each, which contains a
+simple name for the specific disk (e.g., "seagate500") etc., otherwise
+duplicity's signature caching gets confused.
+
+Sample `~/.config/sb.conf` file:
+
+    # must be valid shell syntax; will be sourced from 'sb'
+    # comments are not allowed within a "FILES" section (till blank line)
+    # (note syntax well, including the ending single quotes you may miss if you
+    # don't look carefully!)
+
+    work=sitaram@1.2.3.4
+
+    # disk/key sets for testing rdiff-backup and duplicity
+    testr='
+        DST=/tmp/testbk
+        KEY=none
+    '
+    testd='
+        DST=file:///tmp/testbk
+        KEY=ask
+    '
+
+    # disk/key sets for work machine; note different "path" syntax for r and d.
+    The email address in the "key" in the second set is a GPG key ID
+    wd_r='
+        DST=work::rdif
+        KEY=none
+    '
+    wd_d='
+        DST=ssh://work/dupl
+        KEY=sitaram@atc.tcs.com
+    '
+
+    # ad hoc duplicity backups using typed password
+    wd_d_ASK='
+        DST=ssh://work/dupl
+        KEY=ask
+    '
+
+    # disk/key sets USB backups
+    USB_r='
+        DST=$USB/rdif
+        KEY=none
+    '
+    USB_d='
+        DST=file://$USB/dupl
+        KEY=sitaram@atc.tcs.com
+    '
+    USB_d_ASK='
+        DST=file://$USB/dupl
+        KEY=ask
+    '
+
+    # This line is mandatory.  The entire list of filesets needs to be in this
+    # file, but since the file itself is a shell script, it should ignore it.
+    cat <<EOF >/dev/null
+
+    FILES _test /home/sitaram
+        + testdir
+
+    FILES ASK /
+        + /home/ff/.ssh
+        + /home/sitaram/.gnupg
+        + /home/sitaram/.ssh
+
+    FILES daily /
+        + /root/foo
+        + /home/sitaram/bar
+
+    FILES mail /
+        + /home/sitaram/.thunderbird
+
+    FILES weekly /
+        + /root/.config
+        + /home/sitaram/.config
+
+    FILES dump /
+        + /root/misc
+        + /home/sitaram/misc
+        + /home/sitaram/something-else
+
+    EOF
 
-[Simplicity][s] is a wrapper over [duplicity][d].  Duplicity is a pretty
-awesome backup tool for security conscious people, but it is somewhat
-intimidating at first glance :-)
-
-[d]: http://duplicity.nongnu.org
-[s]: http://github.com/sitaramc/simplicity
-
-**QUICK START**: if you have some idea of how duplicity works, and how it uses
-encryption/gpg, etc., you can simply put simplicity somewhere in your `$PATH`
-and run it without arguments to get going.
-
-----
-
-TOC
-
-----
-
-## #why-d why duplicity
-
-One word answer: paranoia ;-)
-
-Duplicity is a backup tool that allows you to take encrypted backups on
-untrusted media.  You can backup to a USB disk and not worry that someone can
-simply read all your data from it if they find it.  You can backup to servers
-where you have disk space but no real control, like Amazon's S3 service, or a
-friend's hard disk (mutual backups are a good way to help each other out).
-You can even use duplicity's "imap" backend to backup to an IMAP server like
-gmail (note: I have not tried this!)
-
-There are 3 options for encryption in duplicity.
-
-  * The first option is to **have your own gpg key**.  If you want to make
-    unattended, encrypted, backups this is probably the best option.
-
-    If you don't already have a gpg key, start with `gpg --key-gen` and follow
-    the prompts.  This will create a secret and a public keypair in
-    `~/.gnupg`.  The prompts include one for a passphrase -- make sure you
-    choose one that is easy for you to remember even months later, yet hard
-    for anyone else to guess.
-
-    Once you start using this key to encrypt real backups, the contents of
-    your `$HOME/.gnupg` become very critical to *restoring* that data in the
-    future, so please save those files in multiple places.  (This is why a
-    good passphrase is needed).
-
-  * The second option is to **just type in a password everytime** you do
-    something, without worrying about having to keep the contents of
-    `~/.gnupg` safe forever.  To make unattended, encrypted, backups like
-    this, you can set an environment variable (PASSPHRASE) to your password in
-    the backup script.  If you trust your local machine sufficiently and you
-    are the only user on it (as is typical on a desktop or laptop), this may
-    be a reasonable option.
-
-  * The last option of course is not to use any encryption at all, which is
-    probably not such a great idea in general.  More to the point, if you're
-    not going to encrypt stuff you have a much wider choice of backup tools.
-    I'd recommend rdiff-backup -- still one of my favourites and has some nice
-    features that duplicity just cannot have -- or perhaps the up-and-coming
-    'bup' tool.
-
-Duplicity takes a full backup the first time, and incremental backups
-subsequently unless you force a full backup again.
-
-For more details about duplicity see [this][d].
-
-### #caveats caveats about duplicity
-
-  * As someone said, **mathematics cannot be bribed**.  If you lose your gpg
-    keys, or forget your passphrase, your backup is toast.
-
-  * Each full backup takes as much space as the first one -- even if no data
-    has changed.  This is good and bad -- good because it provides some
-    protection against partial disk corruption, and bad because it takes disk
-    space.  Depending on how much disk space you have, how much data you have
-    to backup, and how important it is, you have to decide how many full
-    backups too keep.
-
-    Personally, I keep between 2 and 4.  When I keep only 2, I backup to two
-    different machines.
-
-  * if you delete `~/.cache/duplicity` (or some similar directory, depending
-    on how your distro sets it up), expect some pain next time you run
-    anything.  This is not duplicity's fault -- but it is something you need
-    to be aware of.
-
-## #why-s why simplicity
-
-What part of "duplicity made simple" is not clear?  ;-)
-
-Jokes apart, duplicity is quite complex and has a fairly dense man-page.
-Simplicity sets up the basic stuff quickly and easily, to cover the most
-common cases.
-
-Notice that I don't deal with restoring data yet, but you can run duplicity
-manually for that until I get around to adding it :-)
-
-## #ops simplicity operations
-
-
-### your first (full) backup
-
-First, **install** simplicity by just copying it somewhere in your `$PATH`.
-
-Then, run `simplicity edit` to create and edit the main config file.  The
-format is very simple and the file comes with sample lines that you can
-uncomment and change as needed.
-
-Briefly, the "FILES" section specifies what files are to be backed up.  Each
-files-spec looks like this:
-
-    mymail  =   Maildir     mail-list
-
-'mymail' is the identifier that is used later in the conf file to refer to
-this file-spec.  The files in 'Maildir' are to be backed up.  If the final
-parameter exists, it is the name of a file that contains an include/exclude
-list (see later for what this is and how it affects the backup).
-
-The "DISKS" section specifies URLs for various remote storage areas that you
-have access to.  See the duplicity man page for more on the syntax of the
-"DISKS" part if the examples in the sample config do not suffice.  Each "disk"
-is, as for FILES above, given an identifier for later use.
-
-Similarly the "KEYS" section specifies the various gpg keys you may have and
-the "OPTIONS" section allows you to specify any other duplicity options you
-need.
-
-Finally, the "NAMES" section is what ties all of these together.  Each "name"
-entry looks like this:
-
-    mail-to-usb =   mymail  seagate-500GB   sita
-
-So when you run `simplicity mail-to-usb`, you're backing up the files referred
-to by 'mymail' (this means files from 'Maildir', optionally taking extra
-include/exclude options from a supplied list), onto a 500 GB external disk
-that you have designated 'seagate-500GB' in the "DISKS" section, encrypting
-the backup with the gpg key referred to by 'sita' in the "KEYS" section.
-
-The last argument can take some other values than a reference to a gpg key:
-  * 'none' means no encryption
-  * 'ask' means ask the user each time
-  * 'env' means you will ensure the environment variable `PASSPHRASE` is
-    somehow set before calling simplicity
-
-Be patient; the first backup may take a lot more time than you expected,
-though of course incremental backups go much, *much*, faster.
-
-### incremental backups
-
-Incremental backups are done the same way: `simplicity mail-to-usb`, in this
-example.  Duplicity ensures that all subsequent backups are incremental.
-
-### full backup again
-
-Sadly, there is a penalty for running with incremental backups for too long --
-a restore may take much longer.  Worse, the latest version may depend on more
-and more files from previous backups, so if there is a disk failure, the
-chances of losing backup data increase.
-
-(Personally, I make a full backup every week.)
-
-Let's say that, after reading about the disk space considerations in the
-'caveats about duplicity' section above, you decided you want to keep 4 full
-backups.  Simplicity makes this easy: `simplicity mail-to-usb full=4`.
-
-But duplicity throws a wee little spanner in the works -- this cannot be done
-unattended, unless you are putting the passphrase into the `PASSPHRASE` env
-var :-(
-
-So -- a truly unattended, fire and forget, backup is *only* possible if you
-use the "env" method!  Run the backup normally via cron every day, and the
-'full=4' operation on Sunday (for instance).
-
-### checking things out and verifying the backup
-
-The 'status' operation (`simplicity mail-to-usb status`) runs duplicity's
-'collection-status' command.  Similarly, 'list' runs 'list-current-files', and
-'verify' runs 'verify'.
-
-### restoring files
-
-Simplicity does not have code to restore -- that is usually best done manually
-to avoid overwriting stuff!  Therefore, the single letter command 'r' will
-print the actual restore command you should be using, except the filenames to
-be restored and the destination directory.  Additionally, if you set the env
-variable `FTR` to something, that will be prefilled as the file to restore.
-
-## #incexc include/exclude lists
-
-This is a little more advanced, and for full details you should read the
-duplicity man page.
-
-Let's say you were backing up your email, which is in a directory
-called 'Maildir'.  So the FILES section said:
-
-    mymail      =   Maildir
-
-However, there are some sub-directories that you do not want backed up.  What
-you do is, from the command line, run `simplicity edit mail-list`, which opens
-up an editor.  Now enter these lines:
-
-    - Maildir/.Trash
-    - Maildir/.Junk
-    - Maildir/.Drafts
-
-making sure that the "-" is at the first column and there is only one space
-after it.
-
-Now you again `simplicity edit` and change the 'mymail' line to
-
-    mymail      =   Maildir     mail-list
-
-This tells simplicity to use the 'mail-list' file you created as an
-include/exclude list while backing up 'Maildir'.
-
-Include/exclude lists are very powerful; see the duplicity documentation for
-more details.
-
-Here's a more complex example.  In this case, I'm backing up an arbitrary set
-of directories and files in my home directory.  So I put this in the FILES
-section:
-
-    myhome  =   .   home-list
-
-And then I `simplicity edit home-list` and add the following lines:
-
-    - ./.thunderbird/default/*.slt/Cache
-    - ./.thunderbird/default/*.slt/ImapMail
-    ./.thunderbird
-    ./workdata
-    ./Desktop
-    ./bin
-    ./.config
-    - **
-
-In the previous example, you wanted almost everything in 'thundermail' except
-the two trash directories/files.  By contrast, here you want almost nothing
-out of the gazillions of files and directories that clutter a typical `$HOME`
-today.  This is the reason you need that `- **` line at the end.
-
-Also notice the exceptions within the thunderbird backup.  These lines must
-come *before* the 3rd line.  To understand why, and more such nuances, please
-read the documentation for duplicity.
-
-----
-
-(c) Sitaram Chamarty, sitaramc@gmail.com.  Licensed under the GNU GPL v2.
